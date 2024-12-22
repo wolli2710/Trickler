@@ -28,6 +28,7 @@ serialPort.on('data', function (data) {
     const stringData = data.toString();
 
     if (stringData) {
+      
         console.log(`data received: ${stringData}`);
     }
 });
@@ -42,9 +43,18 @@ io.on('connection', (socket) => {
     console.log('user disconnected');
   });
 
+  serialPort.on('data', function (data) {
+    const stringData = data.toString();
+    if (stringData) {
+      io.emit('updateCurrentWeight', stringData);
+    }
+  });
+
+  /*
   socket.on('startTrickler', (msg) => {
     io.emit('updateCurrentWeight', msg);
   });
+  */
 });
 
 server.listen(port, () => {
