@@ -1,78 +1,102 @@
-var gpio = require('rpio');
+'use strict';
 
-//Stepper Motor FAST
-const STEP_FAST_PIN = 8;
-const DIRECTION_FAST_PIN = 10;
-const STEP_SLOW_PIN = 12;
-const DIRECTION_SLOW_PIN = 16;
+module.exports = class Stepper {
+  gpio = require('rpio');
+  //Stepper Motor FAST
+  STEP_FAST_PIN = 8;
+  DIRECTION_FAST_PIN = 10;
+  STEP_SLOW_PIN = 12;
+  DIRECTION_SLOW_PIN = 16;
 
-gpio.open(STEP_FAST_PIN, gpio.OUTPUT, gpio.LOW);
-gpio.open(DIRECTION_FAST_PIN, gpio.OUTPUT, gpio.LOW);
+  SPEED_FAST = 10;
+  SPEED_SLOW = 1000;
+  SPEED_SLOW2 = 1000;
 
-//Stepper Motor SLOW
-gpio.open(STEP_SLOW_PIN, gpio.OUTPUT, gpio.LOW);
-gpio.open(DIRECTION_SLOW_PIN, gpio.OUTPUT, gpio.LOW);
+  currentWeight = 0;
+  thresholdTarget = 0.2;
+  targetWeight = 43.0;
 
-var SPEED_FAST = 10;
-var SPEED_SLOW = 1000;
-var SPEED_SLOW2 = 1000;
+  THRESHOLD_FAST = 10;
+  THRESHOLD_SLOW = 5;
+  THRESHOLD_SLOW2 = 1;
 
-var currentWeight = 0;
-var targetWeight = 43.0;
+  constructor(targetWeight, thresholdTarget) {
+    this.targetWeight = targetWeight;
+    this.thresholdTarget = thresholdTarget;
+    this.gpio.open(this.STEP_FAST_PIN, this.gpio.OUTPUT, this.gpio.LOW);
+    this.gpio.open(this.DIRECTION_FAST_PIN, this.gpio.OUTPUT, this.gpio.LOW);
 
-var THRESHOLD_FAST = 10;
-var THRESHOLD_SLOW = 5;
-var THRESHOLD_SLOW2 = 1;
+    //Stepper Motor SLOW
+    this.gpio.open(this.STEP_SLOW_PIN, this.gpio.OUTPUT, this.gpio.LOW);
+    this.gpio.open(this.DIRECTION_SLOW_PIN, this.gpio.OUTPUT, this.gpio.LOW);
+  };
 
-function moveSlow2() {
-  gpio.write(STEP_SLOW_PIN, gpio.HIGH);
-  gpio.msleep(SPEED_SLOW2);
-  gpio.write(STEP_SLOW_PIN, gpio.LOW);
-  gpio.msleep(SPEED_SLOW2);
+  moveSlow2() {
+    this.gpio.write(this.STEP_SLOW_PIN, this.gpio.HIGH);
+    this.gpio.msleep(this.SPEED_SLOW2);
+    this.gpio.write(this.STEP_SLOW_PIN, gpio.LOW);
+    this.gpio.msleep(this.SPEED_SLOW2);
+    console.log("SLOW_2: "); 
+    if(this.currentWeight <= (this.targetWeight)) {
+      this.moveSlow2();
+    } else {
+      console.log("Target Weight Reached");
+    }
+  };
+  
+  moveSlow() {
+    this.gpio.write(this.STEP_SLOW_PIN, this.gpio.HIGH);
+    this.gpio.msleep(this.SPEED_SLOW);
+    this.gpio.write(this.STEP_SLOW_PIN, this.gpio.LOW);
+    this.gpio.msleep(this.SPEED_SLOW);
+    console.log("SLOW: ");  
+    if(this.currentWeight < (this.targetWeight - this.THRESHOLD_SLOW)) {
+      this.moveSlow();
+    } else {
+      this.moveSlow2();
+    }
+  };
+  
+  moveFast() {
+    this.gpio.write(this.STEP_FAST_PIN, this.gpio.HIGH);
+    this.gpio.msleep(this.SPEED_FAST);
+    this.gpio.write(this.STEP_FAST_PIN, this.gpio.LOW);
+    this.gpio.msleep(this.SPEED_FAST);
+    console.log("current: " + this.currentWeight + " target: " + this.targetWeight);
+    console.log("diff: " + (this.targetWeight - this.THRESHOLD_FAST));
 
-  if(currentWeight <= (targetWeight)) {
-    moveSlow2();
-  } else {
-    console.log("Target Weight Reached");
+    if(this.currentWeight < (this.targetWeight - this.THRESHOLD_FAST)) {
+      this.moveFast();
+    } else {
+      this.moveSlow();
+    }
+  };
+
+  startTrickler() {
+    this.gpio.write(this.DIRECTION_FAST_PIN, this.gpio.HIGH);
+  
+    if(this.currentWeight == 0 ) {
+      console.log("StartTrickler Current Weight: " + this.currentWeight);
+      this.moveFast();
+    } else {
+      console.log("not 0");
+      this.gpio.sleep(1);
+      this.startTrickler();
+    }
+  };
+
+  updateTargetWeight(weight) {
+    if(typeof(weight) !== 'number') {
+      weight = parseFloat(weight);
+      //console.log(weight);
+    }
+    this.targetWeight = weight;
   }
-}
 
-function moveSlow() {
-  gpio.write(STEP_SLOW_PIN, gpio.HIGH);
-  gpio.msleep(SPEED_SLOW);
-  gpio.write(STEP_SLOW_PIN, gpio.LOW);
-  gpio.msleep(SPEED_SLOW);
-
-  if(currentWeight < (targetWeight - THRESHOLD_SLOW)) {
-    moveSlow();
-  } else {
-    moveSlow2();
-  }
-};
-
-function moveFast() {
-  gpio.write(STEP_FAST_PIN, gpio.HIGH);
-  gpio.msleep(SPEED_FAST);
-  gpio.write(STEP_FAST_PIN, gpio.LOW);
-  gpio.msleep(SPEED_FAST);
-
-  if(currentWeight < (targetWeight - THRESHOLD_FAST)) {
-    moveFast();
-  } else {
-    moveSlow();
-  }
-};
-
-gpio.write(DIRECTION_FAST_PIN, gpio.HIGH);
-
-for (var i = 0; i < 10000; i++) {
-  moveFast();
-}
-
-function startTrickler() {
-  gpio.write(DIRECTION_FAST_PIN, gpio.HIGH);
-
-  if(currentWeight === 0 ) {
-    moveFast();
+  updateCurrentWeight(weight) {
+    if(typeof(weight) !== 'number') {
+      weight = parseFloat(weight);
+    }
+    this.currentWeight = weight;
   }
 }
